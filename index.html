@@ -42,7 +42,6 @@ body{
 }
 
 #chaosCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1}
-#traceCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
 
 #ui{
   position:relative;z-index:10;
@@ -69,30 +68,18 @@ body{
   position:fixed;top:0;left:0;width:100%;height:100%;
   background:rgba(0,0,0,0.94);z-index:50;
   display:none;flex-direction:column;align-items:center;justify-content:center;
-  opacity:0;transition:opacity 1.3s ease;
+  opacity:0;transition:opacity 2.2s ease;
 }
 #eggCanvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:-1}
-.eggTitle{
-  font-size:66px;color:#ff4477;text-shadow:0 0 32px #ff4477,0 0 65px #ff2255;
-  margin-bottom:22px;transform:scale(0.75);opacity:0;
-  transition:all 1.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
 .eggSecret{
-  font-size:28px;color:#ffb8cc;letter-spacing:5px;opacity:0;
-  transition:opacity 1.5s ease 0.7s;
+  font-size:42px;color:#ffb8cc;letter-spacing:6px;opacity:0;
+  transition:opacity 2s ease 0.9s;
 }
-.eggClose{
-  margin-top:50px;padding:12px 30px;border:1px solid #ff4477;color:#ff4477;
-  background:transparent;font:inherit;letter-spacing:2px;cursor:pointer;opacity:0;
-  transition:all 0.5s ease 1.1s;
-}
-.eggClose:hover{background:#ff4477;color:#000}
 </style>
 </head>
 <body>
 
 <canvas id="chaosCanvas"></canvas>
-<canvas id="traceCanvas"></canvas>
 
 <div id="crtOverlay">
   <div class="scanlines"></div>
@@ -108,9 +95,7 @@ body{
 
 <div id="easterOverlay">
   <canvas id="eggCanvas"></canvas>
-  <div class="eggTitle">❤ SIGNAL DECRYPTED ❤</div>
-  <div class="eggSecret">李煜诚最喜欢khq</div>
-  <button class="eggClose" onclick="closeEaster()">CLOSE CHANNEL</button>
+  <div class="eggSecret">但lyc更爱zrl</div>
 </div>
 
 <script>
@@ -124,7 +109,7 @@ function tickFPS(t){
 }
 RAF(tickFPS);
 
-// 混沌乱跑数据流（已修复！）
+// 混沌乱跑数据流
 const chaosCan=document.getElementById('chaosCanvas');
 const cctx=chaosCan.getContext('2d',{alpha:false});
 let CW,CH;
@@ -172,7 +157,6 @@ class ChaosChar{
 }
 
 const chaosList=[];
-// 安全密度，不会卡
 for(let i=0;i<Math.floor((CW*CH)/2100);i++) chaosList.push(new ChaosChar());
 
 function chaosLoop(){
@@ -197,72 +181,37 @@ setInterval(()=>{
   }
 },110);
 
-// 爱心轨迹识别（无提示）
-const traceCan=document.getElementById('traceCanvas');
-const tctx=traceCan.getContext('2d');
-function rt(){traceCan.width=innerWidth;traceCan.height=innerHeight}
-rt();addEventListener('resize',rt);
+// 3秒内点6次触发彩蛋
+let clickCount=0;
+let clickTimer=null;
+const CLICK_NEED=6;
+const TIME_LIMIT=3000;
 
-let drawing=false,path=[],lastPt=null;
-function pos(e){
-  if(e.touches&&e.touches.length)return{x:e.touches[0].clientX,y:e.touches[0].clientY};
-  return{x:e.clientX,y:e.clientY};
-}
-function sd(e){drawing=true;lastPt=pos(e);path=[lastPt];tctx.beginPath();tctx.moveTo(lastPt.x,lastPt.y)}
-function md(e){
-  if(!drawing)return;e.preventDefault();const p=pos(e);path.push(p);
-  tctx.strokeStyle='rgba(255,68,119,0.85)';tctx.lineWidth=5;tctx.lineCap='round';tctx.lineJoin='round';
-  tctx.shadowBlur=22;tctx.shadowColor='#ff4477';tctx.lineTo(p.x,p.y);tctx.stroke();lastPt=p;
-}
-function ed(){
-  if(!drawing)return;drawing=false;
-  if(scoreHeart(path)>=0.5) triggerEaster();
-  setTimeout(()=>{tctx.clearRect(0,0,traceCan.width,traceCan.height);path=[]},950);
-}
-
-function scoreHeart(pts){
-  if(pts.length<22)return 0;
-  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-  pts.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)});
-  const W=maxX-minX,H=maxY-minY;
-  if(W<65||H<65)return 0;
-  const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
-
-  const first=pts[0],last=pts[pts.length-1];
-  const closeDist=Math.hypot(first.x-last.x,first.y-last.y);
-  const closeScore=Math.max(0,1-closeDist/(Math.max(W,H)*0.58));
-
-  let upper=0,lower=0;
-  pts.forEach(p=>{p.y<cy?upper++:lower++});
-  const upDownRatio=upper/pts.length;
-  const ratioScore=(upDownRatio>0.20&&upDownRatio<0.50)?1:Math.max(0,1-Math.abs(upDownRatio-0.35)*2.3);
-
-  let leftSum=0,rightSum=0;
-  pts.forEach(p=>{const d=p.x-cx;d<0?leftSum+=Math.abs(d):rightSum+=Math.abs(d)});
-  const symScore=1-Math.min(1,Math.abs(leftSum-rightSum)/(leftSum+rightSum+1));
-
-  let turnSum=0;
-  for(let i=2;i<pts.length;i++){
-    const v1={x:pts[i-1].x-pts[i-2].x,y:pts[i-1].y-pts[i-2].y};
-    const v2={x:pts[i].x-pts[i-1].x,y:pts[i].y-pts[i-1].y};
-    const dot=v1.x*v2.x+v1.y*v2.y;
-    const m1=Math.hypot(v1.x,v1.y),m2=Math.hypot(v2.x,v2.y);
-    if(m1>1&&m2>1) turnSum+=Math.acos(Math.max(-1,Math.min(1,dot/(m1*m2))));
+document.body.addEventListener('click',()=>{
+  clickCount++;
+  if(clickCount===1){
+    clickTimer=setTimeout(()=>{clickCount=0;},TIME_LIMIT);
   }
-  const curveScore=Math.min(1,turnSum/(Math.PI*2.1));
+  if(clickCount>=CLICK_NEED){
+    clearTimeout(clickTimer);
+    triggerEaster();
+    clickCount=0;
+  }
+});
+document.body.addEventListener('touchstart',(e)=>{
+  e.preventDefault();
+  clickCount++;
+  if(clickCount===1){
+    clickTimer=setTimeout(()=>{clickCount=0;},TIME_LIMIT);
+  }
+  if(clickCount>=CLICK_NEED){
+    clearTimeout(clickTimer);
+    triggerEaster();
+    clickCount=0;
+  }
+},{passive:false});
 
-  return 0.30*closeScore+0.25*ratioScore+0.25*symScore+0.20*curveScore;
-}
-
-traceCan.addEventListener('mousedown',sd);
-traceCan.addEventListener('mousemove',md);
-traceCan.addEventListener('mouseup',ed);
-traceCan.addEventListener('mouseleave',ed);
-traceCan.addEventListener('touchstart',sd,{passive:false});
-traceCan.addEventListener('touchmove',md,{passive:false});
-traceCan.addEventListener('touchend',ed);
-
-// 彩蛋粒子（修复循环bug！之前是 =6 应该是 <6）
+// 彩蛋粒子烟花
 const eggOverlay=document.getElementById('easterOverlay');
 const eggCan=document.getElementById('eggCanvas');
 const ectx=eggCan.getContext('2d');
@@ -302,21 +251,9 @@ function triggerEaster(){
   eggOverlay.style.display='flex';
   setTimeout(()=>{
     eggOverlay.style.opacity='1';
-    document.querySelector('.eggTitle').style.transform='scale(1)';
-    document.querySelector('.eggTitle').style.opacity='1';
     document.querySelector('.eggSecret').style.opacity='1';
-    document.querySelector('.eggClose').style.opacity='1';
-  },60);
+  },80);
   eggLoop();
-}
-
-function closeEaster(){
-  eggOverlay.style.opacity='0';
-  document.querySelector('.eggTitle').style.transform='scale(0.8)';
-  document.querySelector('.eggTitle').style.opacity='0';
-  document.querySelector('.eggSecret').style.opacity='0';
-  document.querySelector('.eggClose').style.opacity='0';
-  setTimeout(()=>{eggOverlay.style.display='none';particles=[];ectx.clearRect(0,0,EW,EH)},1300);
 }
 </script>
 
